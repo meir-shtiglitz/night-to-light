@@ -3,30 +3,35 @@ import LightCube from "./light_cube";
 import Alert from "./Alert";
 import Level from "./Level";
 import Win from "./Win";
+import { rand } from "../utils";
 
 class Lights extends Component {
     constructor(props) {
         super(props);
         this.state = { 
             cubes_on: [],
-            numRows: 5
+            cubesPressed: [],
+            numRows: 5,
+            countForFindMode: 0,
+            isFindMode: false,
          }
          this.change = this.change.bind(this);
     }
 
     componentDidMount(){
         const numRows = parseInt(this.state.numRows);
-        const rand = (min, max) => {
-            return Math.floor(Math.random() * ((max - min) +1) + min);
+        const timesToShuffel = 30;
+        let newCubsOn = []
+        const cubesPressed = []
+        for(let ind = 0; ind < numRows*numRows; ind++){
+            newCubsOn.push(ind)
         }
-        const numCubesToLight = rand(numRows, numRows*2)
-        let randomLightCubs = [];
-        for(let light = 0; light < numCubesToLight; light++ ){
-            let cubeToPush = rand(0, (numRows*numRows)-1);
-            console.log(cubeToPush);
-            if(!randomLightCubs.includes(cubeToPush)) randomLightCubs.push(cubeToPush);
+        for(let ind = 0; ind < timesToShuffel; ind++ ){
+            const cubeToPress = rand(0, (numRows*numRows)-1);
+            newCubsOn = this.change(cubeToPress, newCubsOn)
+            cubesPressed.push(cubeToPress)
         }
-        this.setState({cubes_on: randomLightCubs});
+        this.setState({cubes_on: newCubsOn, cubesPressed});
     }
 
     level = async(level) => {
@@ -34,20 +39,47 @@ class Lights extends Component {
         this.componentDidMount();
     }
 
-    change(ind){
+    handleChange(ind, addToPressed){
+        const {cubesPressed, cubes_on} = this.state;
+        const newCubsOn = this.change(ind, cubes_on)
+        if(addToPressed){
+            cubesPressed.push(ind)
+        } else{
+            cubesPressed.pop()
+        }
+        console.log('cubesPressed', cubesPressed)
+        this.setState({cubes_on: newCubsOn, cubesPressed});
+    }
+
+    change(ind, cubes_on){
         const numRows = parseInt(this.state.numRows);
         var nums_change = [ind,  (ind+1) % numRows !== 0 && ind+1, ind % numRows !== 0 && ind-1, ind+numRows < (numRows*numRows) && ind+numRows, ind-numRows >= 0 && ind-numRows];
         nums_change = nums_change.filter(num => num !== false);
-        var new_cubes_on = [...this.state.cubes_on];
+        var new_cubes_on = [...cubes_on];
         nums_change.map(num => new_cubes_on.includes(num) ? new_cubes_on.splice(new_cubes_on.indexOf(num), 1) : new_cubes_on.push(num));
-        this.setState({cubes_on: new_cubes_on});
+        return new_cubes_on
     }
 
     create_cube(ind){
-        return <LightCube numRows={this.state.numRows} key={ind} click={()=>this.change(ind)} class={`cube ${this.state.cubes_on.includes(ind) && 'on'}`} index={ind} />
+        const {cubesPressed, isFindMode} = this.state
+        const isNextToSolution = isFindMode && cubesPressed[cubesPressed.length-1] === ind
+        return <LightCube numRows={this.state.numRows} key={ind} click={()=>this.handleChange(ind, !isNextToSolution)} class={`cube ${this.state.cubes_on.includes(ind) && 'on'} ${isNextToSolution && 'next'}`} index={ind} />
     }
 
+    isFinished(){
+        const {numRows} = this.state;
+        return this.state.cubes_on.length === numRows*numRows
+    }
 
+    addToFindMode(){
+        let val = this.state.countForFindMode;
+        const newVal = (this.state.isFindMode) ? --val : ++val
+        this.setState({countForFindMode: newVal, isFindMode: newVal === 7})
+    }
+
+    isFindActive(){
+        return this.state.isFindMode
+    }
 
     render() { 
         const {numRows} = this.state;
@@ -65,12 +97,12 @@ class Lights extends Component {
         return ( 
             <>
             <div className="text-center">
-                <h2 className="title">משחק האורות</h2>
-                <Alert html="<p>מטרת המשחק: שכל הקוביות בלוח יהיו על הצד הצהוב<br/><br/>כל לחיצה על קוביה משנה את הצבעים: של הקוביה עצמה, של הקוביות מעליה ומתחתיה ושל הקוביות לימינה ולשמאלה<br/><p>בהצלחה</p></p>" title="הוראות המשחק" />
+                <h2 onClick={() => this.addToFindMode()} className="title">משחק האורות</h2>
+                <Alert html="<p>מטרת המשחק: שכל הקוביות בלוח יהיו על הצד הצהוב<br/><br/>כל לחיצה על קוביה משנה את הצבעים: של הקוביה עצמה, של הקוביות מעליה ומתחתיה ושל הקוביות לימינה ולשמאלה<br/>.שים לב בכל משחק ניתן להגיע לפתרון<br/>!בהצלחה</p></p>" title="הוראות המשחק" />
                 <div><Level change={this.level} /></div>
             </div>
-                <div className={`all_cubes ${this.state.cubes_on.length === numRows*numRows && 'disabled'}`}>
-                    {this.state.cubes_on.length === (numRows*numRows) && <Win />}
+                <div className={`all_cubes ${this.isFinished() && 'disabled'}`}>
+                    {this.isFinished() && <Win />}
                     {all_cubes}
                 </div>
             </>
